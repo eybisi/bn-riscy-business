@@ -127,11 +127,11 @@ def rename_calls_in_start(bv, func):
     print(f"Processing function: {func.name} at {hex(func.start)}")
     # https://github.com/thesecretclub/riscy-business/blob/e3bf776561b33469d2ee22b43a07437bdb912102/riscvm/lib/crt0.c#L8-L9
     func_names = [
-        "riscvm_relocs",
-        "riscvm_imports",
-        "riscvm_init_arrays",
-        "main",
-        "exit",
+        "void riscvm_relocs()",
+        "void riscvm_imports()",
+        "void riscvm_init_arrays()",
+        "int64_t main()",
+        "int64_t exit(int64_t arg1) __noreturn"
     ]
     count = 0
     for block in func.hlil:
@@ -145,10 +145,15 @@ def rename_calls_in_start(bv, func):
                     called_func = bv.get_function_at(addr)
                     if called_func:
                         if count < len(func_names):
-                            new_name = func_names[count]
-                            print(f"Renaming {called_func.name} at {hex(addr)} to {new_name}")
-                            called_func.name = new_name
+                            new_type = func_names[count]
+                            types, func_name = bv.parse_type_string(new_type)
+                            print(f"Renaming {called_func.name} at {hex(addr)} to {func_name}")
+                            called_func.type = types
+                            called_func.name = str(func_name)
+                            if str(func_name) == "main":
+                                called_func.clobbered_regs = RegisterSet(regs=['a0'], confidence=255)
                             count += 1
+    func.reanalyze()
 
 def helper_function(bv):
     exit_insn = ["lui     a1, 0x2","addiw   a7, a1, 0x710","ecall  ","ret    "]
@@ -160,7 +165,7 @@ def helper_function(bv):
         disas = get_disassembly_of_function(f)
         if disas == exit_insn:
             print(f"Found exit function at {hex(f.start)}")
-            types,func_name = bv.parse_type_string('int64_t exit(int64_t arg1)')
+            types,func_name = bv.parse_type_string('int64_t exit(int64_t arg1) __noreturn')
             f.type = types
             f.name = str(func_name)
         if disas == syscall_host_call:
@@ -183,7 +188,7 @@ def helper_function(bv):
             types,func_name = bv.parse_type_string('void riscvm_memcpy(void* dest, void* src, int64_t count)')
             f.type = types
             f.name = str(func_name)
-    start_func = bv.get_function_at(0x0)  # Replace with the actual start address of your function
+    start_func = bv.get_function_at(0x10000)  # Replace with the actual start address of your function
     if start_func:
         rename_calls_in_start(bv, start_func)
     else:
@@ -193,3 +198,5 @@ def helper_function(bv):
         process_riscvm_imports(bv, import_fn[0])
     else:
         print("Could not find riscv_imports function")
+    bv.update_analysis_and_wait()
+    print("Helper analysis complete")

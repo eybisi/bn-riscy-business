@@ -12,23 +12,24 @@ class RiscyBiz(RISCV64):
     is_encrypted = True
     encryption_key = 0xDEADBEEF
     is_shuffled = False
+    load_base = 0x10000
 
     def set_encryption(self,encryption_key:int):
         self.encryption_key = encryption_key
         self.is_encrypted = True
     
     def get_instruction_text(self, data, addr):
-        data = self.vm_fetch(data, addr)
+        data = self.vm_fetch(data, addr-self.load_base)
         tokens, size = super().get_instruction_text(data, addr)
         return tokens, size
     
     def get_instruction_low_level_il(self, data, addr, il):
-        data = self.vm_fetch(data, addr)
+        data = self.vm_fetch(data, addr-self.load_base)
         size = super().get_instruction_low_level_il(data, addr, il)
         return size
     
     def get_instruction_info(self, data, addr):
-        data = self.vm_fetch(data, addr)
+        data = self.vm_fetch(data, addr-self.load_base)
         info = super().get_instruction_info(data, addr)
         return info
 
@@ -80,6 +81,7 @@ class RiscyBizView(BinaryView):
     is_encrypted = False
     is_shuffled = False
     encryption_key = None
+    load_base = 0x10000
     
     def __init__(self,data:BinaryView):
         BinaryView.__init__(self,parent_view=data,file_metadata=data.file)
@@ -173,7 +175,7 @@ class RiscyBizView(BinaryView):
 
     def init(self)->bool:
         self.add_auto_segment(
-			  0, 0x8000, 0, 0x8000, SegmentFlag.SegmentReadable | SegmentFlag.SegmentWritable | SegmentFlag.SegmentExecutable
+			  self.load_base, 0x8000, 0, 0x8000, SegmentFlag.SegmentReadable | SegmentFlag.SegmentWritable | SegmentFlag.SegmentExecutable
 		)
         
         self.header_segment_offset = self.bc_data.rfind(b"RELA")
@@ -186,8 +188,8 @@ class RiscyBizView(BinaryView):
         )
         self.add_user_section("header", self.header_segment_offset, 0xe,
             bn.SectionSemantics.ReadOnlyDataSectionSemantics)
-        self.define_auto_symbol(Symbol(SymbolType.FunctionSymbol, 0, "_start"))
-        self.add_entry_point(0)
+        self.define_auto_symbol(Symbol(SymbolType.FunctionSymbol, self.load_base, "_start"))
+        self.add_entry_point(self.load_base)
 
 
 
