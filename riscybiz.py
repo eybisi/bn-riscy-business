@@ -62,15 +62,22 @@ class RiscyBiz(RISCV64):
 
         return input_val & 0xFFFFFFFF
 
-def create_header_struct_type():
-    struct_type = bn.types.StructureBuilder.create()
+def create_header_struct_type(bv):
 
+    struct_type = bn.types.StructureBuilder.create(packed=True)
     struct_type.append(bn.Type.array(bn.Type.int(1), 0x4), 'magic')
     struct_type.append(bn.Type.bool(), 'relocs')
     struct_type.append(bn.Type.array(bn.Type.int(1), 0x4), 'feat_magic')
-    struct_type.append(bn.Type.bool(), 'features')
-    struct_type.append(bn.Type.array(bn.Type.int(1), 4), 'key')
+    # struct_type.append(bn.Type.bool(), 'features')
+    enum = bn.EnumerationBuilder.create()
+    enum.append("BYTECODE_ENCRYPTED", 0x1)
+    enum.append("OPCODES_SHUFFLED", 0x2)
 
+    # Register the enum in the binary view’s type system
+    bv.define_user_type("FeatureFlags", bn.Type.enumeration(bv.arch,enum, 1))
+    flag_enum = bn.Type.named_type_from_type("FeatureFlags", bn.Type.enumeration(bv.arch,enum, 1))
+    struct_type.append(flag_enum, 'feat_flags')
+    struct_type.append(bn.Type.int(4,False), 'enc_key')
     return struct_type
 
 
@@ -162,7 +169,7 @@ class RiscyBizView(BinaryView):
         return True
     
     def define_header_struct(self):
-        header_struct = create_header_struct_type()
+        header_struct = create_header_struct_type(self)
         self.define_user_data_var(self.header_segment_offset, header_struct, 'riscyvm_header')
 
 
@@ -175,7 +182,7 @@ class RiscyBizView(BinaryView):
 
     def init(self)->bool:
         self.add_auto_segment(
-			  self.load_base, 0x8000, 0, 0x8000, SegmentFlag.SegmentReadable | SegmentFlag.SegmentWritable | SegmentFlag.SegmentExecutable
+			  self.load_base, 0x8000, 0, 0x8000, SegmentFlag.SegmentReadable | SegmentFlag.SegmentExecutable
 		)
         
         self.header_segment_offset = self.bc_data.rfind(b"RELA")
