@@ -15,6 +15,7 @@
 
 import binaryninja as _bn
 from .riscv import RISCV, RISCV64
+from .riscybiz import RiscyBiz,RiscyBizView
 from .calling_convention import RVGCallingConvention
 
 RISCV.register()
@@ -41,3 +42,12 @@ _rvarch64.standalone_platform.default_calling_convention = _rvarch64.calling_con
 _bn.binaryview.BinaryViewType['ELF'].register_arch(
     243, _bn.enums.Endianness.LittleEndian, _rvarch64
 )
+
+
+RiscyBiz.register()
+_rvarch64biz = _bn.architecture.Architecture['riscy-business']
+_rvarch64biz.register_calling_convention(RVGCallingConvention(_rvarch64biz, 'default'))
+_rvarch64biz.standalone_platform.default_calling_convention = _rvarch64biz.calling_conventions['default']
+
+
+RiscyBizView.register()
