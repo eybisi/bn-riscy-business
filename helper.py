@@ -1,5 +1,7 @@
 from binaryninja import *
 from .dll_exports import ws32_exports, kernel32_exports, ntdll_exports, advapi32_exports, user32_exports
+from itertools import chain
+from binaryninja.enums import LowLevelILOperation
 
 def process_riscvm_imports(bv, func):
     """
@@ -39,13 +41,11 @@ def process_riscvm_imports(bv, func):
                             called_func.name = "riscvm_resolve_import"
                             dll,name = find_export_by_hash(arg.constant)
                             if dll and name:
-                                print(f"Found DLL: {dll}, Name: {name} : {instr.dest}")
                                 if instr.operation == HighLevelILOperation.HLIL_VAR_INIT:
                                     instr.dest.name = name
                                 else:
                                     ptr = instr.dest.src
                                     if ptr.operation == HighLevelILOperation.HLIL_CONST_PTR:
-                                        print(f"Found constant pointer: {ptr.constant}")
                                         var = bv.get_data_var_at(ptr.constant)
                                         var.name = name
                                         rename_caller_function(var)
@@ -66,12 +66,10 @@ def rename_caller_function(var):
     # which is syscall_host_call that calls this function
     # rename the function at reference with the name
     # sys_name
-    print("Checking for references to variable:", var.name)
     for code_ref in var.code_refs:
         ref_func = code_ref.function
         if ref_func.name == "riscvm_imports":
             continue
-        print(f"Found reference in function: {ref_func.name} at {hex(ref_func.start)}")
         bad_func = False
         found_sys_host_call = False
         for block in ref_func.hlil:
@@ -155,6 +153,40 @@ def rename_calls_in_start(bv, func):
                             count += 1
     func.reanalyze()
 
+def analyze_syscalls(bv):
+    # https://github.com/thesecretclub/riscy-business/blob/e3bf776561b33469d2ee22b43a07437bdb912102/riscvm/riscvm.cpp#L156
+    print("Analyzing syscalls...")
+    register = "a7"
+    syscalls_defs = [
+        [10000,"syscall_exit"],
+        [10001, "abort"],
+        [10006,"memcpy"],
+        [10007,"memset"],
+        [10008,"memmove"],
+        [10009,"memcmp"],
+        [10100,"print_wstring"],
+        [10101,"print_string"],
+        [10102,"print_int"],
+        [10103,"print_hex"],
+        [10104,"print_tag_hex"],
+        [0x5d,"syscall_exit"],
+        [20000,"syscall_host_call"],
+        [20001,"syscall_get_peb"],
+    ]
+    for func in bv.functions:
+        syscalls = (il for il in chain.from_iterable(func.low_level_il) if il.operation == LowLevelILOperation.LLIL_SYSCALL)
+        for il in syscalls:
+            value = func.get_reg_value_at(il.address, register).value
+            for syscall in syscalls_defs:
+                if syscall[0] == value:
+                    print(f"Found syscall: {syscall[1]} at {hex(il.address)}")
+                    func.set_comment_at(il.address, f"syscall {syscall[1]}")
+                    break
+            else:
+                print(f"Unknown syscall: {value} at {hex(il.address)}")
+                func.set_comment_at(il.address, f"syscall unknown {value}")
+            
+
 def helper_function(bv):
     exit_insn = ["lui     a1, 0x2","addiw   a7, a1, 0x710","ecall  ","ret    "]
     syscall_host_call = ["lui     a2, 0x5","addiw   a7, a2, -0x1e0","ecall  ","ret    "]
@@ -198,5 +230,5 @@ def helper_function(bv):
         process_riscvm_imports(bv, import_fn[0])
     else:
         print("Could not find riscv_imports function")
-    bv.update_analysis_and_wait()
+    analyze_syscalls(bv)
     print("Helper analysis complete")

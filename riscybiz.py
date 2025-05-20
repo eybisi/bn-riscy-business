@@ -177,6 +177,7 @@ class RiscyBizView(BinaryView):
         # Define structs
         self.define_header_struct()
         print('Analysis complete calling helper function')
+        self.analyze_syscalls()
         # Call the helper function
         helper_function(self)
 
@@ -197,9 +198,6 @@ class RiscyBizView(BinaryView):
             bn.SectionSemantics.ReadOnlyDataSectionSemantics)
         self.define_auto_symbol(Symbol(SymbolType.FunctionSymbol, self.load_base, "_start"))
         self.add_entry_point(self.load_base)
-
-
-
         self.update_analysis()
         bn.AnalysisCompletionEvent(self, self.on_complete)
 
