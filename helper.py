@@ -180,7 +180,7 @@ def analyze_syscalls(bv):
             for syscall in syscalls_defs:
                 if syscall[0] == value:
                     print(f"Found syscall: {syscall[1]} at {hex(il.address)}")
-                    func.set_comment_at(il.address, f"syscall {syscall[1]}")
+                    func.set_comment_at(il.address, f"{syscall[1]}")
                     break
             else:
                 print(f"Unknown syscall: {value} at {hex(il.address)}")
