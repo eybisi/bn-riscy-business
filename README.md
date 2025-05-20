@@ -4,7 +4,6 @@ An architecture plug-in that allows binary ninja to load [Riscy-Business](https:
 
 This plugin is fork of [bn-riscv](https://github.com/uni-due-syssec/bn-riscv). 
 
-For the analysis of riscy-business you can read [Analysis of riscy-business payloads](xx)
 
 ## Installation
 
