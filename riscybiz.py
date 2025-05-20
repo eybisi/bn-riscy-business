@@ -177,7 +177,6 @@ class RiscyBizView(BinaryView):
         # Define structs
         self.define_header_struct()
         print('Analysis complete calling helper function')
-        self.analyze_syscalls()
         # Call the helper function
         helper_function(self)
 
