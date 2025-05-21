@@ -2,6 +2,8 @@
 
 An architecture plug-in that allows binary ninja to load [Riscy-Business](https://github.com/thesecretclub/riscy-business/tree/master) payload binaries and see decrypted rv64i instructions.
 
+![](resources/example.png)
+
 This plugin is fork of [bn-riscv](https://github.com/uni-due-syssec/bn-riscv). 
 
 
