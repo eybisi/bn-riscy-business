@@ -14,6 +14,7 @@
 
 
 import binaryninja as _bn
+import json
 from .riscv import RISCV, RISCV64
 from .riscybiz import RiscyBiz,RiscyBizView
 from .calling_convention import RVGCallingConvention, RVSystemCall
@@ -43,12 +44,23 @@ _bn.binaryview.BinaryViewType['ELF'].register_arch(
     243, _bn.enums.Endianness.LittleEndian, _rvarch64
 )
 
-
 RiscyBiz.register()
+
 _rvarch64biz = _bn.architecture.Architecture['riscy-business']
 _rvarch64biz.register_calling_convention(RVGCallingConvention(_rvarch64biz, 'default'))
 _rvarch64biz.standalone_platform.system_call_convention = RVSystemCall(_rvarch64biz, 'default')
 _rvarch64biz.standalone_platform.default_calling_convention = _rvarch64biz.calling_conventions['default']
-
-
 RiscyBizView.register()
+
+
+my_settings = _bn.Settings()
+
+my_settings.register_group("riscy-business", "Riscy Business Loader")
+my_settings.register_setting("riscy-business.key", json.dumps({
+    "title": "Bytecode Decryption Key",
+    "type": "number",
+    "default": 0xdeadbeef,
+    "description": "Key to decrypt the VM bytecode, You can find it in the header struct after opening the binary.",
+    "minValue": 0,
+    "maxValue": 0xffffffff,
+}))

@@ -23,6 +23,8 @@ def process_riscvm_imports(bv, func):
     count = 0
     constants = []
     dll_names = []
+    kernel_consts = [0x536cd652, -0xac9329ae]
+    ntdll_consts = [-0xb97a82c, 0xf46857d4]
     for block in func.hlil:
         for instr in block:
             # Check if the instruction is a call
@@ -31,15 +33,16 @@ def process_riscvm_imports(bv, func):
                 for arg in call_expr.params:
                     if arg.operation in [HighLevelILOperation.HLIL_CONST, HighLevelILOperation.HLIL_CONST_PTR]:
                         called_func = bv.get_function_at(call_expr.dest.constant)
-                        if arg.constant == 0x536cd652 or arg.constant == -0xb97a82c:
+                        if arg.constant in kernel_consts or arg.constant in ntdll_consts:
                             called_func.name = "riscvm_resolve_dll"
-                            if arg.constant == 0x536cd652 or arg.constant == -0x275beae9:
+                            if arg.constant in kernel_consts:
                                 instr.dest.name = "kernel32_base"
-                            if arg.constant == -0xb97a82c or arg.constant == 0xf46857d4:
+                            if arg.constant in ntdll_consts:
                                 instr.dest.name = "ntdll_base"
                         else:
                             called_func.name = "riscvm_resolve_import"
                             dll,name = find_export_by_hash(arg.constant)
+                            constants.append(arg.constant)
                             if dll and name:
                                 if instr.operation == HighLevelILOperation.HLIL_VAR_INIT:
                                     instr.dest.name = name
@@ -80,7 +83,6 @@ def rename_caller_function(var):
                     if target.operation == HighLevelILOperation.HLIL_CALL:
                         if str(target.dest) == "syscall_host_call":
                             found_sys_host_call = True
-                            print(f"Found syscall_host_call in function: {ref_func.name} at {hex(ref_func.start)}")
                         else:
                             bad_func = True
         if not bad_func and found_sys_host_call:

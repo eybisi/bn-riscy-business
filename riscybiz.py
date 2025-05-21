@@ -7,28 +7,40 @@ import struct
 
 class RiscyBiz(RISCV64):
     name = "riscy-business"
-
-    # is_encrypted = False
-    is_encrypted = True
-    encryption_key = 0xDEADBEEF
-    is_shuffled = False
     load_base = 0x10000
+    encryption_key = None
+    is_encrypted = False
+
+    def set_enc_from_settings(self):
+        if self.encryption_key is None:
+            self.is_encrypted = False
+            self.encryption_key = None
+            enc_key = bn.Settings().get_integer("riscy-business.key")
+            if enc_key != 0:
+                self.encryption_key = enc_key
+                self.is_encrypted = True
+            else:
+                self.encryption_key = 0xdeadbeef
+                self.is_encrypted = True 
 
     def set_encryption(self,encryption_key:int):
         self.encryption_key = encryption_key
         self.is_encrypted = True
     
     def get_instruction_text(self, data, addr):
+        self.set_enc_from_settings()
         data = self.vm_fetch(data, addr-self.load_base)
         tokens, size = super().get_instruction_text(data, addr)
         return tokens, size
     
     def get_instruction_low_level_il(self, data, addr, il):
+        self.set_enc_from_settings()
         data = self.vm_fetch(data, addr-self.load_base)
         size = super().get_instruction_low_level_il(data, addr, il)
         return size
     
     def get_instruction_info(self, data, addr):
+        self.set_enc_from_settings()
         data = self.vm_fetch(data, addr-self.load_base)
         info = super().get_instruction_info(data, addr)
         return info
@@ -105,8 +117,6 @@ class RiscyBizView(BinaryView):
         if rela_offset == -1:
             print("Could not find RELA section")
             return False
-        
-        print(f"parse_bc : RELA offset : {hex(rela_offset)}, total size : {hex(size)}")
         assert rela_offset == size - 0xe, "Are you sure binary doesn't have null bytes appended at the end?"
         rela_offset += 4
         while self.bc_data[rela_offset] != 0:
@@ -136,7 +146,7 @@ class RiscyBizView(BinaryView):
         if encrypted:
             needle_offset += 1
             feature_key = int.from_bytes(self.bc_data[needle_offset:needle_offset+4],"little")
-            print(f"Bytecode encryption key : {hex(feature_key)}")
+            print(f"Encryption key : {hex(feature_key)}")
             self.encryption_key = feature_key
 
     @classmethod
@@ -148,14 +158,12 @@ class RiscyBizView(BinaryView):
             print("Could not find RELA section")
             return False
         
-        print(f"is_valid_for_data: :{str(cls)}RELA offset : {hex(rela_offset)}, total size : {hex(length)}")
         rela_offset += 4
         while bc_data[rela_offset] != 0 and rela_offset < length:
             rela = bc_data[rela_offset:rela_offset + 13]
             if len(rela) != 13:
                 return False
             type, offset, addend = struct.unpack("<BIq", rela)
-            print(f"Relocation type {type} at offset {hex(offset)} with addend {addend}")
             rela_offset += 13
         if rela_offset >= length:
             return False
@@ -176,7 +184,7 @@ class RiscyBizView(BinaryView):
     def on_complete(self):
         # Define structs
         self.define_header_struct()
-        print('Analysis complete calling helper function')
+        print('Initial analysis is completed, calling helper function')
         # Call the helper function
         helper_function(self)
 
@@ -210,7 +218,3 @@ class RiscyBizView(BinaryView):
 
     def perform_get_entry_point(self) -> int:
         return 0
-        # return struct.unpack("<H", self.read(0xfffc, 2))[0]
-
-
-
